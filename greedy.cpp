@@ -5,7 +5,10 @@
 #include <vector>
 #include <tuple>
 #include <numeric>
+<<<<<<< Updated upstream
 #include <utility>
+=======
+>>>>>>> Stashed changes
 using namespace std;
 
 
@@ -47,7 +50,10 @@ vector<int> str_to_int(vector<string> input) {
     return output;
 } */
 
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 // robada de stackoverflow
 int rand_lb_ub(int lb, int ub) {
     // para un rand con up (upperbound) y lb (lowerbound)
@@ -92,6 +98,10 @@ problem read_txt() {
             stringstream s(str);
             string num_cars_s, num_options_s, num_classes_s;
             s>>num_cars_s, num_options_s, num_classes_s;
+<<<<<<< Updated upstream
+=======
+            cout << num_cars_s << " " << num_options_s << " " << num_classes_s << endl;
+>>>>>>> Stashed changes
             num_cars = stoi(num_cars_s);
             num_options = stoi(num_options_s);
             num_classes = stoi(num_classes_s);
@@ -152,6 +162,7 @@ int eval(vector<int> x) {
 }
 
 vector<int> move(vector<int> x, int iteration) {
+<<<<<<< Updated upstream
     // TODO cambiar a un swap
     int pos = iteration % x.size();
     pos--;  // esto para que la numero de iteracion corresponda al elemento del vector x
@@ -160,6 +171,11 @@ vector<int> move(vector<int> x, int iteration) {
         pos2 = 0;
     }
     swap(x[pos],x[pos2]);
+=======
+    int pos = iteration % x.size();
+    pos--;  // esto para que la numero de iteracion corresponda al elemento del vector x
+    x[pos] = x[pos] + 1;
+>>>>>>> Stashed changes
     return x;
 }
 
@@ -178,6 +194,15 @@ vector<int> greedy(int iterations, problem instance, vector<int> x) {
 }
 
 int main() {
+<<<<<<< Updated upstream
+=======
+    problem instance = read_txt();
+    vector<int> x = greedy(1000, instance, vector<int>(instance.V, 0));
+    cout << eval(x) << endl;
+    for (int i = 0; i < x.size(); i++) {
+        cout << x[i] << " ";
+    }
+>>>>>>> Stashed changes
     return 0;
 }
 
