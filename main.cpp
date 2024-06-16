@@ -6,6 +6,8 @@
 #include <tuple>
 #include <numeric>
 #include <cmath>
+#include <ctime>
+#include <stdexcept>
 using namespace std;
 
 
@@ -103,7 +105,7 @@ problem read_txt(string filename) {
     
     while (getline(file, str)) {   
         
-        //printf("Line number %d: %s\n", i, str.c_str());
+        printf("Line number %d: %s\n", i, str.c_str());
         
         if (i == 0) {
             stringstream s(str);
@@ -133,6 +135,7 @@ problem read_txt(string filename) {
             
             if (p.size() != q.size()) {
                 printf("Error: p (%lu) and q (%lu) have different sizes\n\n", p.size(), q.size());
+                throw out_of_range("mismatch!");
             } else {
                 printf("p(%lu) and q (%lu) have the same size (that's good)\n\n", p.size(), q.size());
             }
@@ -143,6 +146,7 @@ problem read_txt(string filename) {
             d.push_back(stoi(rv[1])); // agregamos la demanda de cada clase al vector d
             
             vector<string>(rv.begin() + 2, rv.end()).swap(rv);
+            
             //rv.erase(rv.begin(),rv.begin() + 2); // eliminamos los primeros dos elementos que no son parte de la matriz4
             //print_vector(str_to_int(rv), "rv curr");
             
@@ -151,14 +155,16 @@ problem read_txt(string filename) {
         i++;
     }
     
-    if (r.size() != num_classes) {
+    if (r.size() != d.size()) {
         printf("Error: r (%lu) and d (%lu) have different sizes\n\n", r.size(), d.size());
+        throw out_of_range("mismatch!");
     } else {
         printf("r(%lu) and d (%lu) have the same size (that's also good)\n\n", r.size(), d.size());
     }
     
     if (r.size() != num_classes) {
         printf("Error: num_classes (%i) and d (%lu) have different sizes\n\n", num_classes, d.size());
+        throw out_of_range("mismatch!");
     } else {
         printf("num_classes(%i) and d (%lu) have the same size (that's also also good)\n\n", num_classes, d.size());
     }
@@ -205,14 +211,15 @@ int eval(vector<int> x, problem instance) {
             sum = sum + accumulate(sub.begin(), sub.end(), 0) - curr_p;
         }
     }
-    cout << "Evaluation: " << sum << endl;
+    //cout << "Evaluation: " << sum << endl;
     return sum;
 }
 
 vector<int> move(vector<int> vec, int iteration) {
     
     int pos = iteration % vec.size();
-    cout << "iteration: " << iteration << endl;
+    
+    //cout << "iteration: " << iteration << endl;
     //cout << "pos: " << pos << endl;
     //pos--;  // esto para que la numero de iteracion corresponda al elemento del vector x
     //? supongo que no es necesario? partimos desde la iteracion 0 nomas yera
@@ -230,16 +237,39 @@ vector<int> move(vector<int> vec, int iteration) {
     return vec;
 }
 
+void log_data(tuple<int, int, bool> *log, int iterations, string algorithm) {
+    
+    time_t now = time(nullptr);
+    char timestamp[20];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M-%S", localtime(&now));
+
+    string timestamp_str = timestamp;
+    
+    string filename = "../logs/log_" + timestamp_str + "_" + algorithm + ".csv";
+    ofstream log_file(filename);
+    
+    log_file << "iteration,fitness,moved\n";
+    
+  // Write to the file
+    for (int i = 0; i < iterations; i++) {
+        string s = to_string(get<0>(log[i])) + "," + to_string(get<1>(log[i])) + "," + to_string(get<2>(log[i]));
+        log_file << s << "\n";
+    }
+    // Close the file
+    log_file.close();
+}
+
 vector<int> greedy(int iterations, problem instance, vector<int> x) {    
     vector<int> next_x;
+    
+    tuple<int, int, bool> log[iterations]; // (iteration, fitness, moved)
     
     cout << "\nFirst solution: ";
     print_vector(x, "x");
     cout << endl;
     
-    cout << "First evaluation: ";
     int curr_fitness = eval(x, instance);
-    cout << endl;
+    cout << "First evaluation: " << curr_fitness << endl;
     
     for (int i = 0; i < iterations; i++) {
         next_x = move(x, i);
@@ -249,18 +279,20 @@ vector<int> greedy(int iterations, problem instance, vector<int> x) {
         if (eval(next_x, instance) < curr_fitness) { // realiza el movimiento si es que mejora la fitness
             x = next_x;
             curr_fitness = eval(x, instance);
-            cout << "moved!" << endl;
+            log[i] = make_tuple(i, curr_fitness, true);
         } else {
-            cout << "not moved! " << endl;
+            log[i] = make_tuple(i, curr_fitness, false);
         }
     }
+    log_data(log, iterations, "greedy");
     return x;
 }
 
-bool test_prob(int curr_fitness, int next_fitness, int curr_temp) {
+bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
+    // P(.) = e ^ (d_eval) / T)
     int delta = curr_fitness - next_fitness;
     int prob = exp(delta / curr_temp) * 100;
-    int rand_tmp = rand();
+    int rand_tmp = rand() % 100 + 1;
     if (rand_tmp < prob) {
         return true;
     } else {
@@ -268,18 +300,18 @@ bool test_prob(int curr_fitness, int next_fitness, int curr_temp) {
     }
 }
 
-vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, int decay_factor) {
-    // P(.) = e ^ (d_eval) / T)
+vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, float decay_factor) {
     vector<int> next_x;
-    int curr_temp = initial_temperature;
+    float curr_temp = initial_temperature;
     
     cout << "\nFirst solution: ";
     print_vector(x, "x");
     cout << endl;
     
-    cout << "First evaluation: ";
+    tuple<int, int, bool> log[iterations]; // (iteration, fitness, moved)
+    
     int curr_fitness = eval(x, instance);
-    cout << endl;
+    cout << "First evaluation: " << curr_fitness << endl;
     
     for (int i = 0; i < iterations; i++) {
         next_x = move(x, i);
@@ -290,12 +322,13 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
         if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
             x = next_x;
             curr_fitness = eval(x, instance);
-            cout << "moved!" << endl;
+            log[i] = make_tuple(i, curr_fitness, true);
         } else {
-            cout << "not moved!" << endl;
+            log[i] = make_tuple(i, curr_fitness, false);
         }
-        cout << endl;
+        curr_temp = curr_temp * decay_factor;
     }
+    log_data(log, iterations, "simulated_annealing");
     return x;
 }
 
