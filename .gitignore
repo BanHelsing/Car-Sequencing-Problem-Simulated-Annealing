@@ -3,5 +3,6 @@
 *.xlsx
 *.png
 .vscode/
+build/
 others/
 /main

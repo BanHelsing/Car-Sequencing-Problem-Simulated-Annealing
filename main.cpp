@@ -5,6 +5,7 @@
 #include <vector>
 #include <tuple>
 #include <numeric>
+#include <cmath>
 using namespace std;
 
 
@@ -52,7 +53,7 @@ void print_vector(vector<int> vec, string name) {
     for (int i = 1; i < vec.size(); i++) {
         cout << ", " << vec[i];
     }
-    cout << "}, size: " << vec.size() << endl;
+    cout << "}, of size " << vec.size() << endl;
 }
 
 // robada de stackoverflow
@@ -88,7 +89,7 @@ void print_problem(problem instance) {
     }
 }
 
-problem read_txt() {
+problem read_txt(string filename) {
     
     int num_cars, num_options, num_classes;
     vector<int> p;
@@ -96,7 +97,7 @@ problem read_txt() {
     vector<vector<int>> r;
     vector<int> d;
     
-    ifstream file("data.txt");
+    ifstream file(filename);
     int i = 0;
     string str; 
     
@@ -204,7 +205,7 @@ int eval(vector<int> x, problem instance) {
             sum = sum + accumulate(sub.begin(), sub.end(), 0) - curr_p;
         }
     }
-    cout << "Evaluation: " << sum << "\n" << endl;
+    cout << "Evaluation: " << sum << endl;
     return sum;
 }
 
@@ -212,7 +213,7 @@ vector<int> move(vector<int> vec, int iteration) {
     
     int pos = iteration % vec.size();
     cout << "iteration: " << iteration << endl;
-    cout << "pos: " << pos << endl;
+    //cout << "pos: " << pos << endl;
     //pos--;  // esto para que la numero de iteracion corresponda al elemento del vector x
     //? supongo que no es necesario? partimos desde la iteracion 0 nomas yera
     
@@ -229,12 +230,7 @@ vector<int> move(vector<int> vec, int iteration) {
     return vec;
 }
 
-vector<int> simulated_annealing(int iterations, problem instance, vector<int> x) {
-    return x;
-}
-
 vector<int> greedy(int iterations, problem instance, vector<int> x) {    
-    int iteration = 0;
     vector<int> next_x;
     
     cout << "\nFirst solution: ";
@@ -246,9 +242,9 @@ vector<int> greedy(int iterations, problem instance, vector<int> x) {
     cout << endl;
     
     for (int i = 0; i < iterations; i++) {
-        next_x = move(x, iteration);
-        print_vector(x, "curr_x");
-        print_vector(next_x, "next_x");
+        next_x = move(x, i);
+        //print_vector(x, "curr_x");
+        //print_vector(next_x, "next_x");
         //cout << "iteration: " << iteration << endl;
         if (eval(next_x, instance) < curr_fitness) { // realiza el movimiento si es que mejora la fitness
             x = next_x;
@@ -257,23 +253,88 @@ vector<int> greedy(int iterations, problem instance, vector<int> x) {
         } else {
             cout << "not moved! " << endl;
         }
-        iteration++; // incrementa la iteracion si o si
     }
     return x;
 }
 
-int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = iterations count
-    problem instance = read_txt();
+bool test_prob(int curr_fitness, int next_fitness, int curr_temp) {
+    int delta = curr_fitness - next_fitness;
+    int prob = exp(delta / curr_temp) * 100;
+    int rand_tmp = rand();
+    if (rand_tmp < prob) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, int decay_factor) {
+    // P(.) = e ^ (d_eval) / T)
+    vector<int> next_x;
+    int curr_temp = initial_temperature;
+    
+    cout << "\nFirst solution: ";
+    print_vector(x, "x");
+    cout << endl;
+    
+    cout << "First evaluation: ";
+    int curr_fitness = eval(x, instance);
+    cout << endl;
+    
+    for (int i = 0; i < iterations; i++) {
+        next_x = move(x, i);
+        //print_vector(x, "curr_x");
+        //print_vector(next_x, "next_x");
+        //cout << "iteration: " << iteration << endl;
+        int next_fitness = eval(next_x, instance);
+        if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
+            x = next_x;
+            curr_fitness = eval(x, instance);
+            cout << "moved!" << endl;
+        } else {
+            cout << "not moved!" << endl;
+        }
+        cout << endl;
+    }
+    return x;
+}
+
+int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = decay_factor
+    string filename = "../data.txt";
+    
+    problem instance = read_txt(filename);
+    
+    int initial_temperature;
+    int decay_factor;
+    
+    string algorithm_name = argv[1];
+    if (algorithm_name == "sa") {
+        algorithm_name = "simulated annealing"; // para usar sa en vez de simulated annealing como argumento de entrada
+    }
+    
+    cout << "Algorithm: " << algorithm_name << endl;
+    
+    int iterations = stoi(argv[2]);
+    if (argc > 3) {
+        initial_temperature = stoi(argv[3]);
+        decay_factor = stoi(argv[4]);
+    }
+    
+    unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0)
+    srand(seed);
+    
     print_problem(instance);
     vector<int> x = initial_solution(instance);
-    int iterations = stoi(argv[2]);
-    if (argv[1] == "greedy") {
+    
+    if (algorithm_name == "greedy") {
         x = greedy(iterations, instance, x);
-    } else if (argv[1] == "sa") {
-        x = simulated_annealing(iterations, instance, x);
+    } else if (algorithm_name == "simulated annealing") {
+        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor);
     }
     cout << endl;
-    printf("Resultado exitoso obtenido tras %d iteraciones\n", iterations);
-    print_vector(x, "solucion final x");
+    
+    printf("Result after %d iterations using \"%s\"\n", iterations, algorithm_name.c_str());
+    print_vector(x, "X");
+    printf("Final fitness: %d\n", eval(x, instance));
     return 0;
 }

@@ -1,10 +1,3 @@
-
-
-This is a set of randomly-generated problems, each with 100 cars.  The
-utilisation of the option stations is high,  so that these are relatively
-difficult problems to solve.  At least two have no solution (10/93 and 16/81).
-Some of the problems were used by Regin and Puget in their CP97 paper.
-
 #------------
 # Problem 4/72  (Regin & Puget #1)
 # Satisfiable
