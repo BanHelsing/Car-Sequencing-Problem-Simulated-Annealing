@@ -1,0 +1,7 @@
+*.zip
+*.pdf
+*.xlsx
+*.png
+.vscode/
+others/
+/main
