@@ -300,9 +300,12 @@ bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
     }
 }
 
-vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, float decay_factor) {
+vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, float decay_factor, string decay_function) {
     vector<int> next_x;
     float curr_temp = initial_temperature;
+    cout << "Initial temperature: " << curr_temp << endl;
+    cout << "Decay factor: " << decay_factor << endl;
+    cout << "Decay function: " << decay_function << endl;
     
     cout << "\nFirst solution: ";
     print_vector(x, "x");
@@ -313,32 +316,55 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
     int curr_fitness = eval(x, instance);
     cout << "First evaluation: " << curr_fitness << endl;
     
-    for (int i = 0; i < iterations; i++) {
-        next_x = move(x, i);
-        //print_vector(x, "curr_x");
-        //print_vector(next_x, "next_x");
-        //cout << "iteration: " << iteration << endl;
-        int next_fitness = eval(next_x, instance);
-        if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
-            x = next_x;
-            curr_fitness = eval(x, instance);
-            log[i] = make_tuple(i, curr_fitness, true);
-        } else {
-            log[i] = make_tuple(i, curr_fitness, false);
+    // linear decay
+    if (decay_function == "linear") {
+        for (int i = 0; i < iterations; i++) {
+            next_x = move(x, i);
+            cout << "temp: " << curr_temp << "\n";
+            //print_vector(x, "curr_x");
+            //print_vector(next_x, "next_x");
+            //cout << "iteration: " << iteration << endl;
+            int next_fitness = eval(next_x, instance);
+            if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
+                x = next_x;
+                curr_fitness = eval(x, instance);
+                log[i] = make_tuple(i, curr_fitness, true);
+            } else {
+                log[i] = make_tuple(i, curr_fitness, false);
+            }
+            curr_temp = curr_temp - decay_factor;
         }
-        curr_temp = curr_temp * decay_factor;
+    } else if (decay_function == "exponential") {
+    // exponential decay
+        for (int i = 0; i < iterations; i++) {
+            next_x = move(x, i);
+            cout << "temp: " << curr_temp << "\n";
+            //print_vector(x, "curr_x");
+            //print_vector(next_x, "next_x");
+            //cout << "iteration: " << iteration << endl;
+            int next_fitness = eval(next_x, instance);
+            if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
+                x = next_x;
+                curr_fitness = eval(x, instance);
+                log[i] = make_tuple(i, curr_fitness, true);
+            } else {
+                log[i] = make_tuple(i, curr_fitness, false);
+            }
+            curr_temp = curr_temp * decay_factor;
+        }
     }
     log_data(log, iterations, "simulated_annealing");
     return x;
 }
 
-int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = decay_factor
+int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = decay_factor, arg5 = decay_function
     string filename = "../data.txt";
     
     problem instance = read_txt(filename);
     
     int initial_temperature;
-    int decay_factor;
+    float decay_factor;
+    string decay_function;
     
     string algorithm_name = argv[1];
     if (algorithm_name == "sa") {
@@ -350,7 +376,8 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
     int iterations = stoi(argv[2]);
     if (argc > 3) {
         initial_temperature = stoi(argv[3]);
-        decay_factor = stoi(argv[4]);
+        decay_factor = stof(argv[4]);
+        decay_function = argv[5];
     }
     
     unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0)
@@ -362,12 +389,16 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
     if (algorithm_name == "greedy") {
         x = greedy(iterations, instance, x);
     } else if (algorithm_name == "simulated annealing") {
-        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor);
+        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function);
+    }else if (algorithm_name == "combined") {
+        int greedy_iterations = instance.V *2;
+        x = greedy(greedy_iterations, instance, x);
+        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function);
     }
     cout << endl;
     
     printf("Result after %d iterations using \"%s\"\n", iterations, algorithm_name.c_str());
     print_vector(x, "X");
-    printf("Final fitness: %d\n", eval(x, instance));
+    printf("Final fitness: %d\n\n\n", eval(x, instance));
     return 0;
 }

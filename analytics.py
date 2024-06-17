@@ -5,34 +5,30 @@ import os
 # Read the logged data
 ls = os.listdir("logs/")
 print(ls)
-greedy_list = []
-simulated_annealing_list = []
 
-ls = ls[-2:]
+file1 = ls[-1]
+file2 = ls[-2]
+print(file1, file2)
 
-for file in ls:
-    f = file.split("_")
-    algorithm = f[-1]
-    if algorithm == "greedy.csv":
-        greedy_list.append(file)
-    elif algorithm == "annealing.csv":
-        simulated_annealing_list.append(file)
+df1 = pd.read_csv("logs/" + file1) # simulated annealing
+df2 = pd.read_csv("logs/" + file2) # greedy
 
-df_greedy = pd.read_csv("logs/" + greedy_list[0])
-df_simulated_annealing = pd.read_csv("logs/" + simulated_annealing_list[0])
+# Find the maximum iteration value in df1
+max_iteration = df2['iteration'].max()
+
+# Adjust the iteration values in df2
+df1['iteration'] += max_iteration
+
+# Append df2 to df1
+df = pd.concat([df2, df1], ignore_index=True)
+
 
 # Display the first few rows of the dataframe
 
 
 # Perform analysis or plotting
 
-plt.plot(df_greedy['iteration'], df_greedy['fitness'])
-plt.xlabel('Iteration')
-plt.ylabel('Fitness')
-plt.title('Fitness Over Iterations for Greedy Algorithm')
-plt.show()
-
-plt.plot(df_simulated_annealing['iteration'], df_simulated_annealing['fitness'])
+plt.plot(df['iteration'], df['fitness'])
 plt.xlabel('Iteration')
 plt.ylabel('Fitness')
 plt.title('Fitness Over Iterations for Simulated Annealing Algorithm')
