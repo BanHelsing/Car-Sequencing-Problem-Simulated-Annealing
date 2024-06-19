@@ -8,14 +8,9 @@
 #include <cmath>
 #include <ctime>
 #include <stdexcept>
-using namespace std;
+#include <chrono>
 
-
-// De acuerdo a lo extraido de CSPLib:
-//    First line: number of cars; number of options; number of classes.
-//    Second line: for each option, the maximum number of cars with that option in a block. (p)
-//    Third line: for each option, the block size to which the maximum number refers. (q)
-//    Then for each class: index no.; no. of cars in this class; for each option, whether or not this class requires it (1 or 0).
+using std::vector, std::cout, std::endl, std::string, std::tuple, std::get, std::to_string;
 
 struct problem { // tupla definida por ROADEF
     int V;
@@ -50,12 +45,15 @@ vector<int> str_to_int(vector<string> input) {
     return output;
 }   
 
-void print_vector(vector<int> vec, string name) {
-    cout << name << ": {" << vec[0];
+string print_vector(vector<int> vec, string name) {
+    string whole = "";
+    whole += name + ": {" + to_string(vec[0]);
     for (int i = 1; i < vec.size(); i++) {
-        cout << ", " << vec[i];
+        whole += ", " + to_string(vec[i]);
     }
-    cout << "}, of size " << vec.size() << endl;
+    whole += "}, of size " + to_string(vec.size()) + "\n";
+    cout << whole;
+    return whole;
 }
 
 // robada de stackoverflow
@@ -80,17 +78,26 @@ vector<int> initial_solution(problem instance) {
     return x;
 }
 
-void print_problem(problem instance) {
+vector<string> print_problem(problem instance) {
+    vector<string> whole;
     cout << "V: " << instance.V << "\n";
+    whole.push_back("V: " + std::to_string(instance.V) + "\n");
     cout << "O: " << instance.O << "\n";
-    print_vector(instance.p, "p");
-    print_vector(instance.p, "q");
-    print_vector(instance.d, "d");
+    whole.push_back("O: " + std::to_string(instance.O) + "\n");
+    whole.push_back(print_vector(instance.p, "p"));
+    whole.push_back(print_vector(instance.p, "q"));
+    whole.push_back(print_vector(instance.d, "d"));
     for (int i = 0; i < instance.r.size(); i++) {
-        print_vector(instance.r[i], "r");
+        whole.push_back(print_vector(instance.r[i], "r" + to_string(i)));
     }
+    return whole;
 }
 
+// De acuerdo a lo extraido de CSPLib:
+//    First line: number of cars; number of options; number of classes.
+//    Second line: for each option, the maximum number of cars with that option in a block. (p)
+//    Third line: for each option, the block size to which the maximum number refers. (q)
+//    Then for each class: index no.; no. of cars in this class; for each option, whether or not this class requires it (1 or 0).
 problem read_txt(string filename) {
     
     int num_cars, num_options, num_classes;
@@ -99,16 +106,16 @@ problem read_txt(string filename) {
     vector<vector<int>> r;
     vector<int> d;
     
-    ifstream file(filename);
+    std::ifstream file(filename);
     int i = 0;
     string str; 
     
-    while (getline(file, str)) {   
+    while (std::getline(file, str)) {   
         
         printf("Line number %d: %s\n", i, str.c_str());
         
         if (i == 0) {
-            stringstream s(str);
+            std::stringstream s(str);
             string num_cars_s, num_options_s, num_classes_s;
             
             s>> num_cars_s;
@@ -135,7 +142,7 @@ problem read_txt(string filename) {
             
             if (p.size() != q.size()) {
                 printf("Error: p (%lu) and q (%lu) have different sizes\n\n", p.size(), q.size());
-                throw out_of_range("mismatch!");
+                throw std::out_of_range("mismatch!");
             } else {
                 printf("p(%lu) and q (%lu) have the same size (that's good)\n\n", p.size(), q.size());
             }
@@ -157,14 +164,14 @@ problem read_txt(string filename) {
     
     if (r.size() != d.size()) {
         printf("Error: r (%lu) and d (%lu) have different sizes\n\n", r.size(), d.size());
-        throw out_of_range("mismatch!");
+        throw std::out_of_range("mismatch!");
     } else {
         printf("r(%lu) and d (%lu) have the same size (that's also good)\n\n", r.size(), d.size());
     }
     
     if (r.size() != num_classes) {
         printf("Error: num_classes (%i) and d (%lu) have different sizes\n\n", num_classes, d.size());
-        throw out_of_range("mismatch!");
+        throw std::out_of_range("mismatch!");
     } else {
         printf("num_classes(%i) and d (%lu) have the same size (that's also also good)\n\n", num_classes, d.size());
     }
@@ -237,7 +244,7 @@ vector<int> move(vector<int> vec, int iteration) {
     return vec;
 }
 
-void log_data(tuple<int, int, bool> *log, int iterations, string algorithm) {
+void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string algorithm, tuple<double, int, vector<int>, vector<string>> data = {0, 0, {}, {}}) {
     
     time_t now = time(nullptr);
     char timestamp[20];
@@ -245,31 +252,51 @@ void log_data(tuple<int, int, bool> *log, int iterations, string algorithm) {
 
     string timestamp_str = timestamp;
     
-    string filename = "../logs/log_" + timestamp_str + "_" + algorithm + ".csv";
-    ofstream log_file(filename);
+    if (verbose) {
+        algorithm += "_verbose";
+    }
+    
+    string filename = "../logs/log_" + timestamp_str + "_" + algorithm + ".txt";
+    std::ofstream log_file(filename);
+    
+    if (verbose) {
+        log_file << "#time: "<< get<0>(data) << "\n";
+        log_file << "#final fitness: "<< get<1>(data) << "\n";
+        log_file << "#final solution: {" << get<2>(data)[0];
+        for (int i = 1; i < get<2>(data).size(); i++) {
+            log_file << "," << get<2>(data)[i];
+        }
+        log_file << "}\n";
+        log_file << "#problem\n";
+        log_file << "#V: " << get<3>(data)[0];
+        log_file << "#O: " << get<3>(data)[1];
+        log_file << "#" << get<3>(data)[2];
+        log_file << "#" << get<3>(data)[3];
+        log_file << "#" << get<3>(data)[4];
+        for (int i = 5; i < get<3>(data).size(); i++) {
+            log_file << "#" << get<3>(data)[i];
+        }
+    }
     
     log_file << "iteration,fitness,moved\n";
     
   // Write to the file
-    for (int i = 0; i < iterations; i++) {
-        string s = to_string(get<0>(log[i])) + "," + to_string(get<1>(log[i])) + "," + to_string(get<2>(log[i]));
+    for (int i = 0; i < log_size; i++) {
+        string s = std::to_string(get<0>(log[i])) + "," + std::to_string(get<1>(log[i])) + "," + std::to_string(get<2>(log[i]));
         log_file << s << "\n";
     }
     // Close the file
     log_file.close();
 }
 
-vector<int> greedy(int iterations, problem instance, vector<int> x) {    
+vector<int> greedy(int iterations, problem instance, vector<int> x, tuple<int, int, bool> *log) {
     vector<int> next_x;
     
-    tuple<int, int, bool> log[iterations]; // (iteration, fitness, moved)
-    
-    cout << "\nFirst solution: ";
+    cout << "\nSolution at start of greedy";
     print_vector(x, "x");
-    cout << endl;
     
     int curr_fitness = eval(x, instance);
-    cout << "First evaluation: " << curr_fitness << endl;
+    cout << "Evaluation at start of greedy: " << curr_fitness << endl;
     
     for (int i = 0; i < iterations; i++) {
         next_x = move(x, i);
@@ -279,12 +306,11 @@ vector<int> greedy(int iterations, problem instance, vector<int> x) {
         if (eval(next_x, instance) < curr_fitness) { // realiza el movimiento si es que mejora la fitness
             x = next_x;
             curr_fitness = eval(x, instance);
-            log[i] = make_tuple(i, curr_fitness, true);
+            log[i] = {i, curr_fitness, true};
         } else {
-            log[i] = make_tuple(i, curr_fitness, false);
+            log[i] ={i, curr_fitness, false};
         }
     }
-    log_data(log, iterations, "greedy");
     return x;
 }
 
@@ -300,60 +326,43 @@ bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
     }
 }
 
-vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, int initial_temperature, float decay_factor, string decay_function) {
+vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, unsigned initial_temperature, float decay_factor, string decay_function, tuple<int, int, bool> *log) {
     vector<int> next_x;
     float curr_temp = initial_temperature;
-    cout << "Initial temperature: " << curr_temp << endl;
-    cout << "Decay factor: " << decay_factor << endl;
-    cout << "Decay function: " << decay_function << endl;
-    
-    cout << "\nFirst solution: ";
-    print_vector(x, "x");
     cout << endl;
+    cout << "Initial temperature: " << curr_temp << "\n";
+    cout << "Decay factor: " << decay_factor << "\n";
+    cout << "Decay function: " << decay_function << "\n";
     
-    tuple<int, int, bool> log[iterations]; // (iteration, fitness, moved)
+    cout << "\nSolution at start of simulated annealing";
+    print_vector(x, "x");
+    
+    
     
     int curr_fitness = eval(x, instance);
-    cout << "First evaluation: " << curr_fitness << endl;
+    cout << "Evaluation at start of simulated annealing: " << curr_fitness << endl;
     
     // linear decay
-    if (decay_function == "linear") {
-        for (int i = 0; i < iterations; i++) {
-            next_x = move(x, i);
-            cout << "temp: " << curr_temp << "\n";
-            //print_vector(x, "curr_x");
-            //print_vector(next_x, "next_x");
-            //cout << "iteration: " << iteration << endl;
-            int next_fitness = eval(next_x, instance);
-            if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
-                x = next_x;
-                curr_fitness = eval(x, instance);
-                log[i] = make_tuple(i, curr_fitness, true);
-            } else {
-                log[i] = make_tuple(i, curr_fitness, false);
-            }
-            curr_temp = curr_temp - decay_factor;
+    for (int i = 0; i < iterations; i++) {
+        next_x = move(x, i);
+        //cout << "temp: " << curr_temp << "\n";
+        //print_vector(x, "curr_x");
+        //print_vector(next_x, "next_x");
+        //cout << "iteration: " << iteration << endl;
+        int next_fitness = eval(next_x, instance);
+        if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
+            x = next_x;
+            curr_fitness = eval(x, instance);
+            log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, true);
+        } else {
+            log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, false);
         }
-    } else if (decay_function == "exponential") {
-    // exponential decay
-        for (int i = 0; i < iterations; i++) {
-            next_x = move(x, i);
-            cout << "temp: " << curr_temp << "\n";
-            //print_vector(x, "curr_x");
-            //print_vector(next_x, "next_x");
-            //cout << "iteration: " << iteration << endl;
-            int next_fitness = eval(next_x, instance);
-            if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
-                x = next_x;
-                curr_fitness = eval(x, instance);
-                log[i] = make_tuple(i, curr_fitness, true);
-            } else {
-                log[i] = make_tuple(i, curr_fitness, false);
-            }
-            curr_temp = curr_temp * decay_factor;
+        if (decay_function == "linear") {
+            curr_temp -= decay_factor;
+        } else if (decay_function == "exponential") {
+            curr_temp *= decay_factor;
         }
     }
-    log_data(log, iterations, "simulated_annealing");
     return x;
 }
 
@@ -362,43 +371,90 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
     
     problem instance = read_txt(filename);
     
-    int initial_temperature;
+    unsigned initial_temperature;
     float decay_factor;
     string decay_function;
     
     string algorithm_name = argv[1];
     if (algorithm_name == "sa") {
-        algorithm_name = "simulated annealing"; // para usar sa en vez de simulated annealing como argumento de entrada
+        algorithm_name = "simulated annealing"; // para usar "sa" en vez de "simulated annealing" como argumento de entrada
     }
     
     cout << "Algorithm: " << algorithm_name << endl;
     
-    int iterations = stoi(argv[2]);
+    int iterations = std::stoi(argv[2]);
     if (argc > 3) {
-        initial_temperature = stoi(argv[3]);
-        decay_factor = stof(argv[4]);
+        initial_temperature = std::stoi(argv[3]);
+        decay_factor = std::stof(argv[4]);
         decay_function = argv[5];
     }
     
-    unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0)
+    unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0) para obtener randomness "real"
     srand(seed);
     
-    print_problem(instance);
+    vector<string> problem_string = print_problem(instance);
     vector<int> x = initial_solution(instance);
+    tuple<int, int, bool> log[iterations +  instance.V * 2]; // (iteration, fitness, moved)
+    cout << "log size: "<< sizeof(log)/sizeof(log[0]) << endl;
+    tuple<int, int, bool> * log_ptr = &log[0];
+    tuple<double, int, vector<int>, vector<string>> data;
+    
+    std::chrono::duration<double> greedy_time, sa_time;
     
     if (algorithm_name == "greedy") {
-        x = greedy(iterations, instance, x);
+        auto greedy_start = std::chrono::high_resolution_clock::now(); // se inicia el cronómetro
+        x = greedy(iterations, instance, x, log);
+        auto greedy_end = std::chrono::high_resolution_clock::now(); // se detiene el cronómetro
+        greedy_time = greedy_end - greedy_start; //se obtiene la diferencia de tiempos para obtener el tiempo de Greedy
+        cout  << "greedy time: " << greedy_time.count() << "\n";
+        
     } else if (algorithm_name == "simulated annealing") {
-        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function);
+        auto sa_start = std::chrono::high_resolution_clock::now(); //se inicializa el cronómetro
+        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function, log);
+        auto sa_end = std::chrono::high_resolution_clock::now(); //se detiene el cronómetro
+        sa_time = sa_end - sa_start; //se obtiene la diferencia de tiempos para obtener el tiempo de Greedy
+        cout  << "simulated annealing time: " << sa_time.count() << "\n";
+        
     }else if (algorithm_name == "combined") {
         int greedy_iterations = instance.V *2;
-        x = greedy(greedy_iterations, instance, x);
-        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function);
+        
+        int first_fitness = eval(x, instance);
+        
+        auto greedy_start = std::chrono::high_resolution_clock::now(); //se inicializa el cronómetro
+        x = greedy(greedy_iterations, instance, x, log);
+        auto greedy_end = std::chrono::high_resolution_clock::now(); //se detiene el cronómetro
+        greedy_time = greedy_end - greedy_start; //se obtiene la diferencia de tiempos para obtener el tiempo de Greedy
+        
+        int greedy_fitness = eval(x, instance);
+        
+        auto sa_start = std::chrono::high_resolution_clock::now(); // inicio de timing
+        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function, log);
+        auto sa_end = std::chrono::high_resolution_clock::now(); // fin de timing
+        sa_time = sa_end - sa_start; // la diferencia indica el tiempo de ejecucion
+        
+        int sa_fitness = eval(x, instance);
+        
+        cout << endl;
+        cout << "Simulated annealing time: " << sa_time.count() << "\n";
+        cout << "Greedy time:              " << greedy_time.count() << "\n";
+        const double time_s = greedy_time.count() + sa_time.count();
+        cout << "Combined time:            " << time_s << "\n";
+        
+        cout << endl;
+        cout << "First fitness: " << first_fitness << "\n";
+        cout << "Second fitness:" << greedy_fitness << "\n";
+        cout << "Last fitness:  " << sa_fitness << "\n";
+        const int final_fitness = sa_fitness;
+        
+        data = {time_s, first_fitness, x, problem_string};
+        
+        cout << "Improvement: " << abs(sa_fitness - first_fitness) << " units, " << abs((float(sa_fitness) / float(first_fitness) *100 ) - 100) << "\% better overall\n" << "\n";
+        log_data(true, log, iterations+instance.V*2, "greedy+simulated_annealing", data);
     }
     cout << endl;
     
     printf("Result after %d iterations using \"%s\"\n", iterations, algorithm_name.c_str());
     print_vector(x, "X");
-    printf("Final fitness: %d\n\n\n", eval(x, instance));
+    printf("Final fitness: %d\n\n", eval(x, instance));
     return 0;
 }
