@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <tuple>
@@ -8,9 +9,11 @@
 #include <cmath>
 #include <ctime>
 #include <stdexcept>
+#include <random>
 #include <chrono>
 
 using std::vector, std::cout, std::endl, std::string, std::tuple, std::get, std::to_string;
+namespace fs = std::filesystem;
 
 struct problem { // tupla definida por ROADEF
     int V;
@@ -20,7 +23,6 @@ struct problem { // tupla definida por ROADEF
     vector<vector<int>> r;
     vector<int> d; // se agrega el vector d que contiene las demandas por clase
 };
-
 
 // inicio de sección read, todas estas funciones existen con el propósito de ayudar a read_txt
 
@@ -54,13 +56,6 @@ string print_vector(vector<int> vec, string name) {
     whole += "}, of size " + to_string(vec.size()) + "\n";
     cout << whole;
     return whole;
-}
-
-// robada de stackoverflow
-int rand_lb_ub(int lb, int ub) {
-    // para un rand con up (upperbound) y lb (lowerbound)
-    // rand() % (ub - lb + 1)) + lb
-    return (rand() % (ub - lb + 1)) + lb;
 }
 
 vector<int> initial_solution(problem instance) {
@@ -98,7 +93,7 @@ vector<string> print_problem(problem instance) {
 //    Second line: for each option, the maximum number of cars with that option in a block. (p)
 //    Third line: for each option, the block size to which the maximum number refers. (q)
 //    Then for each class: index no.; no. of cars in this class; for each option, whether or not this class requires it (1 or 0).
-problem read_txt(string filename) {
+auto read_txt(string filename) {
     
     int num_cars, num_options, num_classes;
     vector<int> p;
@@ -142,7 +137,8 @@ problem read_txt(string filename) {
             
             if (p.size() != q.size()) {
                 printf("Error: p (%lu) and q (%lu) have different sizes\n\n", p.size(), q.size());
-                throw std::out_of_range("mismatch!");
+                problem instance = {0, num_options, p, q, r, d};
+                return instance;
             } else {
                 printf("p(%lu) and q (%lu) have the same size (that's good)\n\n", p.size(), q.size());
             }
@@ -164,14 +160,16 @@ problem read_txt(string filename) {
     
     if (r.size() != d.size()) {
         printf("Error: r (%lu) and d (%lu) have different sizes\n\n", r.size(), d.size());
-        throw std::out_of_range("mismatch!");
+        problem instance = {0, num_options, p, q, r, d};
+        return instance;
     } else {
         printf("r(%lu) and d (%lu) have the same size (that's also good)\n\n", r.size(), d.size());
     }
     
     if (r.size() != num_classes) {
         printf("Error: num_classes (%i) and d (%lu) have different sizes\n\n", num_classes, d.size());
-        throw std::out_of_range("mismatch!");
+        problem instance = {0, num_options, p, q, r, d};
+        return instance;
     } else {
         printf("num_classes(%i) and d (%lu) have the same size (that's also also good)\n\n", num_classes, d.size());
     }
@@ -181,6 +179,15 @@ problem read_txt(string filename) {
 }
 
 // seccion de funciones base, estas sirven tanto para el algoritmo greedy como para el algoritmo simulated annealing
+
+vector<int> shuffle_vector(vector<int> x) {
+    int vector_size = x.size();
+        for (int k = 0; k < x.size(); k++) {
+        int r = k + rand() % (vector_size - k); // careful here!
+        std::swap(x[k], x[r]);
+    }
+    return x;
+}
 
 vector<int> get_classes(vector<int> x, int option, problem instance) {
     vector<int> x_bin (x.size(), 0);
@@ -244,7 +251,7 @@ vector<int> move(vector<int> vec, int iteration) {
     return vec;
 }
 
-void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string algorithm, tuple<double, int, vector<int>, vector<string>> data = {0, 0, {}, {}}) {
+void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string algorithm, string problemname, tuple<double, int, vector<int>, vector<string>> data = {0, 0, {}, {}}) {
     
     time_t now = time(nullptr);
     char timestamp[20];
@@ -255,12 +262,14 @@ void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string alg
     if (verbose) {
         algorithm += "_verbose";
     }
-    
-    string filename = "../logs/log_" + timestamp_str + "_" + algorithm + ".txt";
+    problemname = split(problemname, '/').back();
+    cout << "Logging: " << timestamp_str << "_" << problemname << "_" << algorithm << ".txt" << endl;
+    string filename = "../logs/log_" + timestamp_str + "_" + problemname + ".txt";
     std::ofstream log_file(filename);
     
     if (verbose) {
         log_file << "#time: "<< get<0>(data) << "\n";
+        log_file << "#algorithm: "<< algorithm << "\n";
         log_file << "#final fitness: "<< get<1>(data) << "\n";
         log_file << "#final solution: {" << get<2>(data)[0];
         for (int i = 1; i < get<2>(data).size(); i++) {
@@ -292,7 +301,7 @@ void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string alg
 vector<int> greedy(int iterations, problem instance, vector<int> x, tuple<int, int, bool> *log) {
     vector<int> next_x;
     
-    cout << "\nSolution at start of greedy";
+    cout << "\nSolution at start of greedy: ";
     print_vector(x, "x");
     
     int curr_fitness = eval(x, instance);
@@ -317,6 +326,9 @@ vector<int> greedy(int iterations, problem instance, vector<int> x, tuple<int, i
 bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
     // P(.) = e ^ (d_eval) / T)
     int delta = curr_fitness - next_fitness;
+    if (delta == 0) {
+        return false;
+    }
     int prob = exp(delta / curr_temp) * 100;
     int rand_tmp = rand() % 100 + 1;
     if (rand_tmp < prob) {
@@ -326,23 +338,21 @@ bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
     }
 }
 
-vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, unsigned initial_temperature, float decay_factor, string decay_function, tuple<int, int, bool> *log) {
+vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, float initial_temperature, unsigned reheats, float decay_factor, tuple<int, int, bool> *log) {
     vector<int> next_x;
     float curr_temp = initial_temperature;
+    int iterations_without_improvement = 0;
+    int curr_reheats = 0;
     cout << endl;
     cout << "Initial temperature: " << curr_temp << "\n";
     cout << "Decay factor: " << decay_factor << "\n";
-    cout << "Decay function: " << decay_function << "\n";
     
-    cout << "\nSolution at start of simulated annealing";
+    cout << "\nSolution at start of simulated annealing: ";
     print_vector(x, "x");
-    
-    
     
     int curr_fitness = eval(x, instance);
     cout << "Evaluation at start of simulated annealing: " << curr_fitness << endl;
-    
-    // linear decay
+
     for (int i = 0; i < iterations; i++) {
         next_x = move(x, i);
         //cout << "temp: " << curr_temp << "\n";
@@ -350,43 +360,37 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
         //print_vector(next_x, "next_x");
         //cout << "iteration: " << iteration << endl;
         int next_fitness = eval(next_x, instance);
-        if (next_fitness < curr_fitness || test_prob(curr_fitness, next_fitness, curr_temp)) {
+        bool passed_temp = test_prob(curr_fitness, next_fitness, curr_temp);
+        if (next_fitness < curr_fitness || passed_temp) {
             x = next_x;
             curr_fitness = eval(x, instance);
             log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, true);
+            if (next_fitness < curr_fitness) {
+                iterations_without_improvement = 0;
+            } else {
+                iterations_without_improvement++;
+            }
         } else {
             log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, false);
+            iterations_without_improvement++;
         }
-        if (decay_function == "linear") {
-            curr_temp -= decay_factor;
-        } else if (decay_function == "exponential") {
-            curr_temp *= decay_factor;
+        curr_temp *= decay_factor;
+        if (curr_temp < 1 && curr_reheats < reheats) {
+            curr_temp = initial_temperature/(curr_reheats+1);
+            cout << "reheating: " << curr_temp << endl;
+            curr_reheats++;
         }
     }
     return x;
 }
 
-int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = decay_factor, arg5 = decay_function
-    string filename = "../data.txt";
-    
+bool run(float initial_temperature, unsigned reheats, float decay_factor, int iterations, string algorithm_name, string filename) {
+    cout << "Opening: " << filename << endl;
     problem instance = read_txt(filename);
-    
-    unsigned initial_temperature;
-    float decay_factor;
-    string decay_function;
-    
-    string algorithm_name = argv[1];
-    if (algorithm_name == "sa") {
-        algorithm_name = "simulated annealing"; // para usar "sa" en vez de "simulated annealing" como argumento de entrada
-    }
-    
-    cout << "Algorithm: " << algorithm_name << endl;
-    
-    int iterations = std::stoi(argv[2]);
-    if (argc > 3) {
-        initial_temperature = std::stoi(argv[3]);
-        decay_factor = std::stof(argv[4]);
-        decay_function = argv[5];
+    iterations *= instance.V;
+    cout << iterations << endl;
+    if (instance.V == 0) {
+        return false;
     }
     
     unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0) para obtener randomness "real"
@@ -394,6 +398,7 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
     
     vector<string> problem_string = print_problem(instance);
     vector<int> x = initial_solution(instance);
+    x = shuffle_vector(x);
     tuple<int, int, bool> log[iterations +  instance.V * 2]; // (iteration, fitness, moved)
     cout << "log size: "<< sizeof(log)/sizeof(log[0]) << endl;
     tuple<int, int, bool> * log_ptr = &log[0];
@@ -410,12 +415,12 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
         
     } else if (algorithm_name == "simulated annealing") {
         auto sa_start = std::chrono::high_resolution_clock::now(); //se inicializa el cronómetro
-        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function, log);
+        x = simulated_annealing(iterations, instance, x, initial_temperature, reheats, decay_factor, log_ptr);
         auto sa_end = std::chrono::high_resolution_clock::now(); //se detiene el cronómetro
         sa_time = sa_end - sa_start; //se obtiene la diferencia de tiempos para obtener el tiempo de Greedy
         cout  << "simulated annealing time: " << sa_time.count() << "\n";
         
-    }else if (algorithm_name == "combined") {
+    } else if (algorithm_name == "combined") {
         int greedy_iterations = instance.V *2;
         
         int first_fitness = eval(x, instance);
@@ -428,7 +433,7 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
         int greedy_fitness = eval(x, instance);
         
         auto sa_start = std::chrono::high_resolution_clock::now(); // inicio de timing
-        x = simulated_annealing(iterations, instance, x, initial_temperature, decay_factor, decay_function, log);
+        x = simulated_annealing(iterations, instance, x, initial_temperature, reheats, decay_factor, log_ptr);
         auto sa_end = std::chrono::high_resolution_clock::now(); // fin de timing
         sa_time = sa_end - sa_start; // la diferencia indica el tiempo de ejecucion
         
@@ -449,12 +454,57 @@ int main(int argc, const char * argv[]) { // arg1 = algorithm name, arg2 = itera
         data = {time_s, first_fitness, x, problem_string};
         
         cout << "Improvement: " << abs(sa_fitness - first_fitness) << " units, " << abs((float(sa_fitness) / float(first_fitness) *100 ) - 100) << "\% better overall\n" << "\n";
-        log_data(true, log, iterations+instance.V*2, "greedy+simulated_annealing", data);
+        log_data(true, log_ptr, iterations+instance.V*2, "greedy+simulated_annealing", filename, data);
     }
     cout << endl;
     
     printf("Result after %d iterations using \"%s\"\n", iterations, algorithm_name.c_str());
     print_vector(x, "X");
     printf("Final fitness: %d\n\n", eval(x, instance));
+    return true;
+}
+
+int main(int argc, const char **argv) {  // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = reheats, arg5 = decay_factor, arg6 = decay_function  
+    
+    float initial_temperature;
+    unsigned reheats;
+    float decay_factor;
+    string type;
+    
+    string algorithm_name = argv[1];
+    if (algorithm_name == "sa") {
+        algorithm_name = "simulated annealing"; // para usar "sa" en vez de "simulated annealing" como argumento de entrada
+    }
+    
+    cout << "Algorithm: " << algorithm_name << endl;
+    
+    int iterations = std::stoi(argv[2]);
+    if (argc > 4) {
+        initial_temperature = std::stof(argv[3]);
+        reheats = std::stoi(argv[4]);
+        decay_factor = std::stof(argv[5]);
+        type = argv[6];
+    } else {
+        type = argv[3];
+        cout << "type: " << type << endl;
+    }
+    std::string path = "../data/medium/";
+    
+    if (type == "all") {
+        for (auto & entry : fs::directory_iterator(path)) {
+            string filename = entry.path().string();
+            if (!run(initial_temperature, reheats, decay_factor, iterations, algorithm_name, filename)) {
+                continue;
+            }
+        }
+    } else if (type == "single") {
+        string filename = "../data/medium/pb_200_10.txt";
+        if (!run(initial_temperature, reheats, decay_factor, iterations, algorithm_name, filename)) {
+            return 0;
+        }
+    } else {
+        cout << "Invalid type: " << type << endl;
+        return 0;
+    }
     return 0;
 }
