@@ -32,7 +32,8 @@ def split_problems(input_file, output_dir):
                     out_file.write('\n'.join(numerical_data))
                 problem_number += 1
 
-if __name__ == '__main__':
-    input_file = os.path.join('data', 'car_problems.txt')  # Assuming data folder in same directory
-    output_dir = 'problems'  # Change this to your desired output directory name
-    split_problems(input_file, output_dir)
+#input_file = os.path.join('data', 'car_problems.txt')  # Assuming data folder in same directory
+#output_dir = 'problems'  # Change this to your desired output directory name
+#split_problems(input_file, output_dir)
+
+
