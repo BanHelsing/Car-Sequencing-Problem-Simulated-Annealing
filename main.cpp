@@ -80,7 +80,7 @@ vector<string> print_problem(problem instance) {
     cout << "O: " << instance.O << "\n";
     whole.push_back("O: " + std::to_string(instance.O) + "\n");
     whole.push_back(print_vector(instance.p, "p"));
-    whole.push_back(print_vector(instance.p, "q"));
+    whole.push_back(print_vector(instance.q, "q"));
     whole.push_back(print_vector(instance.d, "d"));
     for (int i = 0; i < instance.r.size(); i++) {
         whole.push_back(print_vector(instance.r[i], "r" + to_string(i)));
@@ -232,18 +232,18 @@ vector<int> move(vector<int> vec, int iteration) {
     } else { // caso normal
         int temp2 = vec[pos + 1];
         vec[pos] = temp2;
-        vec[pos +1 ] = temp1;
+        vec[pos + 1] = temp1;
     }
     return vec;
 }
 
 // funcion para crear los archivos log
-void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string algorithm, string problemname, tuple<double, int, int, vector<int>, vector<string>> *data) {
+void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string algorithm, string problemname, tuple<double, int, int, int, vector<int>, vector<string>> *data) {
     
     time_t now = time(nullptr);
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M-%S", localtime(&now)); // usado para el nombre, así no se repiten
-
+    
     string timestamp_str = timestamp;
     
     if (verbose) {
@@ -251,38 +251,39 @@ void log_data(bool verbose, tuple<int, int, bool> *log, int log_size, string alg
     }
     problemname = split(problemname, '/').back();
     cout << "Logging: " << timestamp_str << "_" << problemname << "_" << algorithm << ".txt" << endl;
-    string filename = "../logs/log_" + timestamp_str + "_" + problemname + ".txt";
+    string filename = "../logs/log_" + timestamp_str + "_" + problemname + ".txt"; // crear el archivo
     std::ofstream log_file(filename);
     
     if (verbose) {
         log_file << "#time: "<< get<0>(*data) << "\n";
+        log_file << "#iterations: "<< get<1>(*data) << "\n";
         log_file << "#algorithm: "<< algorithm << "\n";
-        log_file << "#first fitness: "<< get<1>(*data) << "\n";
-        log_file << "#final fitness: "<< get<2>(*data) << "\n";
-        log_file << "#final solution: {" << get<3>(*data)[0];
-        for (int i = 1; i < get<3>(*data).size(); i++) {
-            log_file << "," << get<3>(*data)[i];
+        log_file << "#first fitness: "<< get<2>(*data) << "\n";
+        log_file << "#final fitness: "<< get<3>(*data) << "\n";
+        log_file << "#final solution: {" << get<4>(*data)[0];
+        for (int i = 1; i < get<4>(*data).size(); i++) {
+            log_file << "," << get<4>(*data)[i];
         }
         log_file << "}\n";
         log_file << "#problem\n";
-        log_file << "#V: " << get<4>(*data)[0];
-        log_file << "#O: " << get<4>(*data)[1];
-        log_file << "#" << get<4>(*data)[2];
-        log_file << "#" << get<4>(*data)[3];
-        log_file << "#" << get<4>(*data)[4];
-        for (int i = 5; i < get<4>(*data).size(); i++) {
-            log_file << "#" << get<4>(*data)[i];
+        log_file << "#V: " << get<5>(*data)[0];
+        log_file << "#O: " << get<5>(*data)[1];
+        log_file << "#" << get<5>(*data)[2];
+        log_file << "#" << get<5>(*data)[3];
+        log_file << "#" << get<5>(*data)[4];
+        for (int i = 5; i < get<5>(*data).size(); i++) {
+            log_file << "#" << get<5>(*data)[i];
         }
     }
     
     log_file << "iteration,fitness,moved\n";
     
-  // Write to the file
+  // escribir en el archivo
     for (int i = 0; i < log_size; i++) {
         string s = std::to_string(get<0>(log[i])) + "," + std::to_string(get<1>(log[i])) + "," + std::to_string(get<2>(log[i]));
         log_file << s << "\n";
     }
-    // Close the file
+    // cerrarlo
     log_file.close();
 }
 
@@ -313,11 +314,13 @@ vector<int> greedy(int iterations, problem instance, vector<int> x, tuple<int, i
 bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
     // P(.) = e ^ (d_eval) / T)
     int delta = curr_fitness - next_fitness; // calcula delta
-    if (delta == 0) { // para ahorrar tiempo, en caso de que la delta sea 0 se retorna falso
+    if (delta == 0) {
         return false;
     }
-    int prob = exp(delta / curr_temp) * 100;
-    int rand_tmp = rand() % 100 + 1;
+    
+    float prob = exp(delta / curr_temp);
+    float rand_tmp = (float)(rand()) / (float)(RAND_MAX);
+    
     if (rand_tmp < prob) {
         return true; // retorna verdadero si pasa la prueba
     } else {
@@ -329,7 +332,6 @@ bool test_prob(int curr_fitness, int next_fitness, float curr_temp) {
 vector<int> simulated_annealing(int iterations, problem instance, vector<int> x, float initial_temperature, unsigned reheats, float decay_factor, tuple<int, int, bool> *log) {
     vector<int> next_x;
     float curr_temp = initial_temperature;
-    int iterations_without_improvement = 0;
     int curr_reheats = 0;
     cout << endl;
     cout << "Initial temperature: " << curr_temp << "\n";
@@ -339,6 +341,8 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
     print_vector(x, "x");
     
     int curr_fitness = eval(x, instance);
+    int best_fitness = curr_fitness;
+    vector<int> best_x = x;
     cout << "Evaluation at start of simulated annealing: " << curr_fitness << endl;
 
     for (int i = 0; i < iterations; i++) {
@@ -349,6 +353,10 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
             x = next_x;
             curr_fitness = eval(x, instance);
             log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, true);
+            if (curr_fitness < best_fitness) {
+                best_fitness = curr_fitness;
+                best_x = x;
+            }
         } else { // si no hay movimiento se logea de todas formas
             log[i + instance.V*2] = std::make_tuple(i+instance.V*2, curr_fitness, false);
         }
@@ -358,6 +366,7 @@ vector<int> simulated_annealing(int iterations, problem instance, vector<int> x,
             curr_reheats++;
         }
     }
+    x = best_x;
     return x;
 }
 
@@ -371,17 +380,14 @@ bool run(float initial_temperature, unsigned reheats, float decay_factor, int it
         return false;
     }
     
-    unsigned int seed = 14091321; // para testeo, en caso real podria reemplazarse con time(0) para obtener randomness "real"
-    srand(seed);
-    
     vector<string> problem_string = print_problem(instance);
     vector<int> x = initial_solution(instance);
-    //x = shuffle_vector(x);
+    x = shuffle_vector(x);
     tuple<int, int, bool> log[iterations +  instance.V * 2]; // (iteration, fitness, moved)
     cout << "log size: "<< sizeof(log)/sizeof(log[0]) << endl;
     tuple<int, int, bool> * log_ptr = &log[0]; // para pasar por referencia al array log, debido a que puede llegar a tener 500000 elementos de largo
-    tuple<double, int, int, vector<int>, vector<string>> data;
-    tuple<double, int, int, vector<int>, vector<string>> * data_ptr = &data; // igualmente con la data
+    tuple<double, int, int, int, vector<int>, vector<string>> data;
+    tuple<double, int, int, int, vector<int>, vector<string>> * data_ptr = &data; // igualmente con la data
     
     std::chrono::duration<double> greedy_time, sa_time;
     
@@ -406,10 +412,10 @@ bool run(float initial_temperature, unsigned reheats, float decay_factor, int it
         
         int first_fitness = eval(x, instance);
         
-        auto greedy_start = std::chrono::high_resolution_clock::now(); //se inicializa el cronómetro
+        auto greedy_start = std::chrono::high_resolution_clock::now(); // inicio de timing
         x = greedy(greedy_iterations, instance, x, log);
-        auto greedy_end = std::chrono::high_resolution_clock::now(); //se detiene el cronómetro
-        greedy_time = greedy_end - greedy_start; //se obtiene la diferencia de tiempos para obtener el tiempo de Greedy
+        auto greedy_end = std::chrono::high_resolution_clock::now(); // fin de timing
+        greedy_time = greedy_end - greedy_start; // la diferencia indica el tiempo de ejecucion
         
         int greedy_fitness = eval(x, instance);
         
@@ -432,7 +438,7 @@ bool run(float initial_temperature, unsigned reheats, float decay_factor, int it
         cout << "Last fitness:  " << sa_fitness << "\n";
         const int final_fitness = sa_fitness;
         
-        data = {time_s, first_fitness, final_fitness, x, problem_string};
+        data = {time_s, iterations, first_fitness, final_fitness, x, problem_string};
         
         cout << "Improvement: " << abs(sa_fitness - first_fitness) << " units, " << abs((float(sa_fitness) / float(first_fitness) *100 ) - 100) << "\% better overall\n" << "\n";
         log_data(true, log_ptr, iterations+instance.V*2, "greedy+simulated_annealing", filename, data_ptr);
@@ -446,6 +452,10 @@ bool run(float initial_temperature, unsigned reheats, float decay_factor, int it
 }
 
 int main(int argc, const char **argv) {  // arg1 = algorithm name, arg2 = iterations count, arg3 = initial_temperature, arg4 = reheats, arg5 = decay_factor, arg6 = decay_function  
+    
+    //unsigned int seed = 14091321; // para testeo, en caso real se reemplaza con time(0) para obtener randomness "real"
+    unsigned int seed = time(0);
+    srand(seed);
     
     float initial_temperature;
     unsigned reheats;
@@ -465,11 +475,11 @@ int main(int argc, const char **argv) {  // arg1 = algorithm name, arg2 = iterat
         reheats = std::stoi(argv[4]);
         decay_factor = std::stof(argv[5]);
         type = argv[6];
-    } else {
+    } else { // caso en el que se quiera usar solo el alhgorimo greedy
         type = argv[3];
         cout << "type: " << type << endl;
     }
-    std::string path = "../data/medium/";
+    std::string path = "../data/small/"; // tamaño de las instancias, puede ser small o medium
     
     if (type == "all") { // si es que se quieren hacer todos los problemas de una categoria
         for (auto & entry : fs::directory_iterator(path)) {
@@ -479,7 +489,7 @@ int main(int argc, const char **argv) {  // arg1 = algorithm name, arg2 = iterat
             }
         }
     } else if (type == "single") { // si es que se quiere hacer solo uno, especificado abajo
-        string filename = "../data/medium/pb_200_10.txt";
+        string filename = "../data/medium/pb_100_8_20_26.txt";
         if (!run(initial_temperature, reheats, decay_factor, iterations, algorithm_name, filename)) {
             return 0;
         }
