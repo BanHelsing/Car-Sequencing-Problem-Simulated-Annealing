@@ -15,7 +15,7 @@ def process_file(file_path):
     with open(file_path, 'w') as file:
         file.write('\n'.join(lines) + '\n')
 
-# Example usage
+# Example use
 ls = os.listdir("data/medium/")
 print(ls)
 for file in ls:

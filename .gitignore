@@ -5,5 +5,5 @@
 .vscode/
 build/
 others/
-/main
+/build/main
 logs/

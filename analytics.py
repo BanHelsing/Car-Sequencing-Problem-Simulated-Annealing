@@ -15,7 +15,6 @@ def find_first_non_commented_line(file_path):
                 return line_number
     return None
 
-# Append df2 to df1
 file_path = "logs/" + file
 df = pd.read_csv(file_path, skiprows=find_first_non_commented_line(file_path)-1)
 
